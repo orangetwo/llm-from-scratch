@@ -1,6 +1,5 @@
 from typing import List, Tuple, Optional
 from collections import Counter, deque
-# from functools import lru_cache
 
 class BPETokenizerSimple:
 	def __init__(self):

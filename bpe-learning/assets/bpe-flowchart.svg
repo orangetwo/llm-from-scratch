@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="2140" viewBox="0 0 1760 2140" role="img" aria-labelledby="title desc" xml:space="preserve">
+<title id="title">bpe_optimize.py：BPE 训练、编码与解码流程</title>
+<desc id="desc">训练阶段按片段统计最高频相邻词元对并替换，记录递增 ID；编码阶段复用规则，优先合并新 ID 最小的候选；解码查表并还原空格标记。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#66758a"/></marker>
+  <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3868bf"/></marker>
+</defs>
+<style>
+text { font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: #172c46; }
+.heading { font-weight: 650; }
+.mono { font-family: 'SFMono-Regular', Consolas, 'PingFang SC', monospace; }
+</style>
+<rect width="1760" height="2140" fill="#f4f6fa"/>
+
+<text x="64" y="76" font-size="48" text-anchor="start" style="fill:#172c46" class="" font-weight="650">BPE 算法流程</text>
+<text x="66" y="123" font-size="25" text-anchor="start" style="fill:#53657c" class="">基于 bpe_optimize.py · BPETokenizerOpt · 字符级实现</text>
+<rect x="1305" y="49" width="391" height="58" rx="29" fill="#e8eef8" stroke="#e8eef8" stroke-width="1.6"/>
+<text x="1500" y="86" font-size="22" text-anchor="middle" style="fill:#3868bf" class="" font-weight="600">训练学规则  →  编码用规则</text>
+<rect x="48" y="164" width="1664" height="144" rx="16" fill="#eaf0f8" stroke="#d7e2f1" stroke-width="1.6"/>
+<text x="76" y="202" font-size="25" text-anchor="start" style="fill:#172c46" class="" font-weight="650">共用预切分</text>
+<text x="252" y="201" font-size="23" text-anchor="start" style="fill:#3868bf" class="mono">pretokenize_text_opt(text)</text>
+<text x="76" y="245" font-size="24" text-anchor="start" style="fill:#172c46" class="">普通空格 → Ġ；回车 / 换行保留；其他空白移除。每个片段内部独立合并，不跨边界。</text>
+<text x="76" y="282" font-size="22" text-anchor="start" style="fill:#53657c" class="mono">例：&quot;a  b\r\n&quot; → [&quot;a&quot;, &quot;Ġ&quot;, &quot;Ġb&quot;, &quot;\r&quot;, &quot;\n&quot;]</text>
+<rect x="48" y="340" width="800" height="1442" rx="22" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.6"/>
+<rect x="900" y="340" width="812" height="1442" rx="22" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.6"/>
+<text x="78" y="386" font-size="30" text-anchor="start" style="fill:#3868bf" class="" font-weight="650">01  训练</text>
+<text x="250" y="385" font-size="24" text-anchor="start" style="fill:#53657c" class="mono">train()</text>
+<text x="930" y="386" font-size="30" text-anchor="start" style="fill:#167a72" class="" font-weight="650">02  编码</text>
+<text x="1105" y="385" font-size="24" text-anchor="start" style="fill:#53657c" class="mono">encode_opt()</text>
+<rect x="202" y="420" width="492" height="70" rx="16" fill="#edf3fe" stroke="#cbdaf3" stroke-width="1.6"/>
+<text x="448.0" y="447.5" font-size="24" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">输入训练文本与目标词表大小</text>
+<text x="448.0" y="478.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">text · vocab_size · allowed_special</text>
+<path d="M 448 490 L 448 520" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="202" y="520" width="492" height="126" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="448.0" y="544.5" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">预切分并初始化词表</text>
+<text x="448.0" y="575.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">256 个基础字符 + 训练中其他字符</text>
+<text x="448.0" y="606.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">确保存在 Ġ；登记特殊词元</text>
+<text x="448.0" y="637.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">特殊词元在训练文本中仍按字符拆分</text>
+<path d="M 448 646 L 448 674" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="202" y="674" width="492" height="80" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="448.0" y="706.5" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">每个片段 → 字符 ID 序列</text>
+<text x="448.0" y="737.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">保留二维结构；new_id = 初始词表大小</text>
+<path d="M 448 754 L 448 786" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M 448 786 L 615 844 L 448 902 L 281 844 Z" fill="#fff7e5" stroke="#d8b56a" stroke-width="1.8"/>
+<text x="448" y="852" font-size="22" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">new_id &lt; vocab_size？</text>
+<path d="M 448 902 L 448 942" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="462" y="930" font-size="20" text-anchor="start" style="fill:#66758a" class="">是</text>
+<rect x="202" y="942" width="492" height="82" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="448.0" y="975.5" font-size="24" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">统计并选择最高频相邻对</text>
+<text x="448.0" y="1006.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">find_freq_pair() · 同频取最先出现的一对</text>
+<path d="M 448 1024 L 448 1058" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M 448 1058 L 593 1115 L 448 1172 L 303 1115 Z" fill="#fff7e5" stroke="#d8b56a" stroke-width="1.8"/>
+<text x="448" y="1123" font-size="22" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">存在相邻对？</text>
+<path d="M 448 1172 L 448 1212" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="462" y="1201" font-size="20" text-anchor="start" style="fill:#66758a" class="">是</text>
+<rect x="202" y="1212" width="492" height="110" rx="16" fill="#edf3fe" stroke="#cbdaf3" stroke-width="1.6"/>
+<text x="448.0" y="1244.0" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">替换并记录合并规则</text>
+<text x="448.0" y="1275.0" font-size="21" text-anchor="middle" style="fill:#53657c" class="">replace_pair()：从左到右非重叠替换</text>
+<text x="448.0" y="1306.0" font-size="21" text-anchor="middle" style="fill:#53657c" class="">bpe_merges[pair] = new_id</text>
+<path d="M 448 1322 L 448 1352" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="278" y="1352" width="340" height="62" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="448.0" y="1391.0" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">new_id += 1</text>
+<path d="M 448 1414 L 448 1438 L 118 1438 L 118 844 L 281 844" fill="none" stroke="#3868bf" stroke-width="2.4" marker-end="url(#arrow-blue)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="131" y="1399" font-size="20" text-anchor="start" style="fill:#3868bf" class="">重算当前序列的频次</text>
+<path d="M 615 844 L 788 844 L 788 1474 L 694 1474" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="641" y="832" font-size="20" text-anchor="start" style="fill:#66758a" class="">否</text>
+<path d="M 593 1115 L 748 1115 L 748 1474 L 694 1474" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="622" y="1102" font-size="20" text-anchor="start" style="fill:#66758a" class="">否</text>
+<rect x="202" y="1446" width="492" height="110" rx="16" fill="#edf3fe" stroke="#cbdaf3" stroke-width="1.6"/>
+<text x="448.0" y="1478.0" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">按新 ID 递增补全双向词表</text>
+<text x="448.0" y="1509.0" font-size="21" text-anchor="middle" style="fill:#53657c" class="">新词元 = 左子词元字符串 + 右子词元字符串</text>
+<text x="448.0" y="1540.0" font-size="21" text-anchor="middle" style="fill:#53657c" class="">子词元先存在，再构建父词元</text>
+<path d="M 448 1556 L 448 1620" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="202" y="1620" width="492" height="96" rx="16" fill="#dfeafa" stroke="#b9cceb" stroke-width="1.6"/>
+<text x="448.0" y="1645.0" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">训练结果</text>
+<text x="448.0" y="1676.0" font-size="21" text-anchor="middle" style="fill:#53657c" class="">index2token / token2index</text>
+<text x="448.0" y="1707.0" font-size="21" text-anchor="middle" style="fill:#53657c" class="">bpe_merges：相邻 ID 对 → 新 ID</text>
+<text x="78" y="1753" font-size="21" text-anchor="start" style="fill:#53657c" class="">停止条件：达到目标大小，或已经没有相邻对。</text>
+<rect x="1014" y="420" width="564" height="70" rx="16" fill="#eaf7f4" stroke="#c6e5dc" stroke-width="1.6"/>
+<text x="1296.0" y="447.5" font-size="24" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">输入待编码文本 + 已训练的词表 / 规则</text>
+<text x="1296.0" y="478.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">text · allowed_special</text>
+<path d="M 1296 490 L 1296 520" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1014" y="520" width="564" height="92" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="1296.0" y="558.5" font-size="24" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">检查特殊词元使用权限</text>
+<text x="1296.0" y="589.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">遇到未获准的已登记 &lt;|...|&gt; → ValueError</text>
+<path d="M 1296 612 L 1296 644" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1014" y="644" width="564" height="156" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="1296.0" y="683.5" font-size="24" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">按特殊词元拆分，依次处理各段</text>
+<text x="1296.0" y="714.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">获准的特殊词元：直接查表 → 单个 ID</text>
+<text x="1296.0" y="745.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">普通文本：预切分后，整段命中词表 → ID</text>
+<text x="1296.0" y="776.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">匹配到但未登记的特殊词元 → ValueError</text>
+<path d="M 1578 708 L 1668 708 L 1668 1572 L 1578 1572" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1601" y="750" font-size="20" text-anchor="start" style="fill:#167a72" class="">直接</text>
+<text x="1601" y="778" font-size="20" text-anchor="start" style="fill:#167a72" class="">取 ID</text>
+<path d="M 1296 800 L 1296 818" fill="none" stroke="#66758a" stroke-width="2.4"/>
+<text x="1296" y="841" font-size="20" text-anchor="middle" style="fill:#53657c" class="">其余普通片段 → tokenize_with_bpe()</text>
+<path d="M 1296 847 L 1296 864" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1014" y="864" width="564" height="82" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="1296.0" y="897.5" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">从单字符 ID 序列开始</text>
+<text x="1296.0" y="928.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">遇到词表缺失字符 → ValueError</text>
+<path d="M 1296 946 L 1296 978" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1014" y="978" width="564" height="82" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="1296.0" y="1011.5" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">查找当前相邻对中的可用规则</text>
+<text x="1296.0" y="1042.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">候选 = 当前相邻对 ∩ bpe_merges</text>
+<path d="M 1296 1060 L 1296 1092" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M 1296 1092 L 1440 1150 L 1296 1208 L 1152 1150 Z" fill="#fff7e5" stroke="#d8b56a" stroke-width="1.8"/>
+<text x="1296" y="1158" font-size="22" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">存在候选？</text>
+<path d="M 1296 1208 L 1296 1248" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1310" y="1236" font-size="20" text-anchor="start" style="fill:#66758a" class="">是</text>
+<rect x="1014" y="1248" width="564" height="94" rx="16" fill="#eaf7f4" stroke="#c6e5dc" stroke-width="1.6"/>
+<text x="1296.0" y="1287.5" font-size="26" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">选新 ID 最小的一对</text>
+<text x="1296.0" y="1318.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">即训练时最早学到的合并规则</text>
+<path d="M 1296 1342 L 1296 1374" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1014" y="1374" width="564" height="82" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="1296.0" y="1407.5" font-size="24" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">合并该对的所有非重叠出现位置</text>
+<text x="1296.0" y="1438.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">replace_pair() · 从左到右替换</text>
+<path d="M 1296 1456 L 1296 1480 L 960 1480 L 960 1019 L 1014 1019" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="978" y="1510" font-size="20" text-anchor="start" style="fill:#53657c" class="">更新序列后重新寻找候选</text>
+<path d="M 1440 1150 L 1622 1150 L 1622 1572 L 1578 1572" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1461" y="1137" font-size="20" text-anchor="start" style="fill:#66758a" class="">否</text>
+<rect x="1014" y="1536" width="564" height="72" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="1296.0" y="1580.0" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">得到当前片段的 ID，继续处理其余片段</text>
+<path d="M 1296 1608 L 1296 1654" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1310" y="1637" font-size="20" text-anchor="start" style="fill:#66758a" class="">所有片段处理完毕</text>
+<rect x="1014" y="1654" width="564" height="62" rx="16" fill="#dff1eb" stroke="#b8d8cd" stroke-width="1.6"/>
+<text x="1296.0" y="1693.0" font-size="25" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">按原文顺序汇总 → token_ids</text>
+<text x="930" y="1753" font-size="21" text-anchor="start" style="fill:#53657c" class="">编码不重算频率；候选为空时，长度可能仍大于 1。</text>
+<rect x="48" y="1810" width="1664" height="238" rx="22" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.6"/>
+<text x="78" y="1856" font-size="30" text-anchor="start" style="fill:#805993" class="" font-weight="650">03  解码</text>
+<text x="250" y="1855" font-size="24" text-anchor="start" style="fill:#53657c" class="mono">decode(token_ids)</text>
+<rect x="78" y="1893" width="238" height="92" rx="16" fill="#f3eef8" stroke="#dfd2e9" stroke-width="1.6"/>
+<text x="197.0" y="1931.5" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">输入 ID 序列</text>
+<text x="197.0" y="1962.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">token_ids</text>
+<path d="M 316 1939 L 362 1939" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="362" y="1893" width="350" height="92" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="537.0" y="1931.5" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">逐个查 index2token</text>
+<text x="537.0" y="1962.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">未知 ID → ValueError</text>
+<path d="M 712 1939 L 758 1939" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="758" y="1893" width="510" height="92" rx="16" fill="#ffffff" stroke="#d7e0ec" stroke-width="1.6"/>
+<text x="1013.0" y="1931.5" font-size="24" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">还原词元字符串</text>
+<text x="1013.0" y="1962.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">保留 \r / \n；词元开头 Ġ → 普通空格</text>
+<path d="M 1268 1939 L 1314 1939" fill="none" stroke="#66758a" stroke-width="2.4" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1314" y="1893" width="368" height="92" rx="16" fill="#f3eef8" stroke="#dfd2e9" stroke-width="1.6"/>
+<text x="1498.0" y="1931.5" font-size="23" text-anchor="middle" style="fill:#172c46" class="" font-weight="600">拼接 → 输出文本</text>
+<text x="1498.0" y="1962.5" font-size="21" text-anchor="middle" style="fill:#53657c" class="">无须逆向执行合并规则</text>
+<text x="78" y="2023" font-size="21" text-anchor="start" style="fill:#53657c" class="">注意：此实现没有 UTF-8 字节回退；制表符等空白会丢失，字面量 Ġ 也可能与空格标记冲突。</text>
+<text x="64" y="2096" font-size="21" text-anchor="start" style="fill:#66758a" class="">对应源码：bpe-learning/bpe_optimize.py</text>
+<text x="1696" y="2096" font-size="21" text-anchor="end" style="fill:#66758a" class="">BPE  /  训练看频率 · 编码看优先级</text>
+</svg>
