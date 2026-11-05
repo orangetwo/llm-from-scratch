@@ -6,7 +6,7 @@ from torch import nn
 
 
 class GroupedQueryAttention(nn.Module):
-	def __init__(self, embed_size: int, head_num: int, group_size: int, max_context_length: int, qkv_bias: bool=False):
+	def __init__(self, embed_size: int, head_num: int, group_size: int, max_context_length: int=1024, qkv_bias: bool=False):
 		"""
 		embed_size：输入、输出的特征维度 E。
 		head_num：Query head 的数量 H，每个 head 的维度 D = E // H。
@@ -71,3 +71,15 @@ class GroupedQueryAttention(nn.Module):
 		context = context.transpose(1, 2).reshape(B, L, E)
 
 		return self.W_o(context)  # 输出投影融合各 head 的信息，形状仍为 [B, L, E]
+
+if __name__ == "__main__":
+	model = GroupedQueryAttention(embed_size=128, head_num=8, group_size=2)
+	x = torch.randn(2, 16, 128)
+
+	y = model(x)
+	print(y.shape)  # torch.Size([2, 16, 128])
+
+	# 验证梯度能传到 K/V 的投影参数
+	y.square().mean().backward()
+	print(model.W_k.weight.grad.norm())
+	print(model.W_v.weight.grad.norm())
