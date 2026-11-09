@@ -50,7 +50,7 @@ $$
 \right)\right].
 $$
 
-两个对数比分别对应代码中的 `chosen_gain` 和 `rejected_gain`，它们的差是 `margin`。令 $m$ 表示这个差值，$\beta>0$ 为缩放系数，$\sigma(z)=1/(1+e^{-z})$。偏好模型给 chosen 胜出的概率为 $\sigma(\beta m)$，所以单对样本的损失为 $-\log\sigma(\beta m)$。
+两个对数比分别对应代码中的 `chosen_gain` 和 `rejected_gain`，它们的差是 `margin`。令 $m$ 表示这个差值，$`\beta>0`$ 为缩放系数，$`\sigma(z)=1/(1+e^{-z})`$。偏好模型给 chosen 胜出的概率为 $\sigma(\beta m)$，所以单对样本的损失为 $-\log\sigma(\beta m)$。
 
 `train_dpo` 在训练开始时复制一份 `policy`，冻结为 `reference`。两个模型都关闭 dropout。参考模型的前向计算使用 `torch.no_grad()`，策略模型的前向计算保留梯度。
 
