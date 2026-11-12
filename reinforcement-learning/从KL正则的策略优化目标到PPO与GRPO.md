@@ -182,7 +182,7 @@ y_l &= (y_{l,1},\ldots,y_{l,T_l}).
 
 ```math
 \log\pi(y_b\mid x)
-=\sum_{t=1}^{T_b}\log\pi(y_{b,t}\mid x,y_{b,<t}),
+=\sum_{t=1}^{T_b}\log\pi(y_{b,t}\mid x,y_{b,\t t}),
 \qquad b\in\{w,l\}.
 ```
 
