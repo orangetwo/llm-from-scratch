@@ -5,15 +5,15 @@ from typing import Optional
 
 class CausalSelfAttention(nn.Module):
 	"""
-	多头自注意力: x 为 [B, L, E], mask 为 [B, L] 的 bool tensor
+	多头自注意力: x 为 [B, L, E], pad_mask 为 [B, L] 的 bool tensor
 	pad_mask 中 true 表示 padding, 每条序列中至少包含一个有效 token
 	"""
-	def __init__(self, embed_size: int, head_num: int, context_length: int, qkv_bias: bool=False):
+	def __init__(self, embed_size: int, head_num: int, max_context_length: int, qkv_bias: bool=False):
 		super().__init__()
 		assert head_num >0 and embed_size % head_num == 0, f"维度必须能被头数整除"
 		self.head_num = head_num
 		self.head_dim = embed_size // head_num
-		self.context_length = context_length
+		self.max_context_length = max_context_length
 
 		self.W_q = nn.Linear(embed_size, embed_size, bias=qkv_bias)
 		self.W_k = nn.Linear(embed_size, embed_size, bias=qkv_bias)
@@ -22,13 +22,13 @@ class CausalSelfAttention(nn.Module):
 
 		self.register_buffer(
 			"causal_mask", 
-			torch.triu(torch.ones(self.context_length, self.context_length, dtype=torch.bool), diagonal=1)	
+			torch.triu(torch.ones(self.max_context_length, self.max_context_length, dtype=torch.bool), diagonal=1)	
 		)
 
 	def forward(self, x: torch.Tensor, pad_mask: Optional[torch.Tensor] = None):
 		B, L, E = x.shape # B: batch size, L: sequence length, E: embeding dimension
-		if L > self.context_length:
-			raise ValueError(f"序列长度 {L} 超过最大上下文长度 {self.context_length}")
+		if L > self.max_context_length:
+			raise ValueError(f"序列长度 {L} 超过最大上下文长度 {self.max_context_length}")
 
 		# 1. 同一个 x 分别生成 Q、K、V：[B, L, E]
 		# 2. 拆成 H 个头：[B, L, E] -> [B, L, H, D] -> [B, H, L, D]
@@ -38,7 +38,7 @@ class CausalSelfAttention(nn.Module):
 
 		# 3. 每个头计算 token 之间的匹配分数：[B, H, L, L], 注意 mask 为 [L, L], 所以增加前两个维度
 		attn_score = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)
-		mask_bool = self.causal_mask.bool()[:L, :L]  # 只取前 L 个 token 的 mask
+		mask_bool = self.causal_mask[:L, :L]  # 只取前 L 个 token 的 mask
 		if pad_mask is not None:
 			assert pad_mask.device == x.device, "pad_mask 必须与 x 在同一设备"
 			assert pad_mask.dtype == torch.bool and pad_mask.shape == (B, L), f"pad_mask 必须是 bool pad_mask 形状应为 {(B, L)}，实际 {tuple(pad_mask.shape)}"
