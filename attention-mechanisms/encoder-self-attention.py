@@ -31,8 +31,9 @@ class EncoderSelfAttention(nn.Module):
 		# 3. 每个头计算 token 之间的匹配分数：[B, H, L, L]
 		attn_score = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)
 		if pad_mask is not None:
+			assert pad_mask.device == x.device, "pad_mask 必须与 x 在同一设备"
+			assert pad_mask.dtype == torch.bool and pad_mask.shape == (B, L), f"pad_mask 必须是 bool pad_mask 形状应为 {(B, L)}，实际 {tuple(pad_mask.shape)}"
 			assert (~pad_mask).any(dim=-1).all(), "每条序列至少需要一个有效 token"
-			assert pad_mask.dtype == torch.bool and pad_mask.shape == (B, L), f" "
 			# mask 为 True 的位置表示 padding token, 这些位置的分数设为 -inf
 			attn_score = attn_score.masked_fill(pad_mask[:, None, None, :], float('-inf'))
 
